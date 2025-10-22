@@ -1,0 +1,107 @@
+Quick file / I/O helpers
+# print a text file
+cat /challenge/runme
+
+# create a file containing "password" WITHOUT a trailing newline
+echo -n "password" > input.txt
+
+# show bytes in hex (useful to inspect binary output)
+xxd -p somefile.bin | sed -n '1,80p'
+
+# show human-readable hexdump
+hexdump -C somefile.bin | sed -n '1,80p'
+
+Base64 encode/decode (shell & python)
+# decode base64 file to raw bytes
+base64 -d encoded.b64 > decoded.bin
+
+# encode a file to base64
+base64 input.bin > output.b64
+
+# quick one-liner to decode a base64 string and print as ascii (bash)
+echo 'BASE64STRING' | base64 -d
+
+# decode base64 string to stdout (python)
+python3 -c "import base64,sys; print(base64.b64decode(sys.argv[1]))" 'BASE64STRING'
+
+Hex ↔ raw bytes conversions (Python & xxd)
+# convert a hex string to raw binary file (bash using xxd)
+echo "48656c6c6f" | xxd -r -p > out.bin
+
+# convert binary to hex string
+xxd -p in.bin | tr -d '\n' > in.hex
+
+# python: convert hex string to bytes and print
+python3 - <<'PY'
+import sys
+h = "48656c6c6f"
+b = bytes.fromhex(h)
+print(b)
+PY
+
+Simple XOR examples (Python)
+# xor_hex.py — XOR hex ciphertext with repeating key (both hex strings)
+# Usage: python3 xor_hex.py <hex_ciphertext> <hex_key>
+import sys
+ct = bytes.fromhex(sys.argv[1])
+key = bytes.fromhex(sys.argv[2])
+pt = bytes(c ^ key[i % len(key)] for i, c in enumerate(ct))
+print(pt)         # raw bytes (may include non-printable)
+print(pt.decode(errors='replace'))  # printable attempt
+
+AES-128-ECB decrypt (OpenSSL)
+# Convert hex ciphertext to raw binary
+echo "<cipher_hex>" | xxd -r -p > cipher.bin
+
+# Decrypt AES-128-ECB using OpenSSL (hex key provided)
+openssl enc -d -aes-128-ecb -nosalt -in cipher.bin -K <hexkey> -nopad > plaintext.bin
+
+# If padding is present, omit -nopad and examine output
+xxd -p plaintext.bin | sed -n '1,80p'
+
+RSA modular exponentiation (Python)
+# rsa_decrypt.py
+# Usage: python3 rsa_decrypt.py <c_hex> <d_decimal> <n_decimal>
+import sys
+c = int(sys.argv[1], 16)
+d = int(sys.argv[2], 10)
+n = int(sys.argv[3], 10)
+m = pow(c, d, n)
+hexm = format(m, 'x')
+if len(hexm) % 2: hexm = '0' + hexm
+plaintext = bytes.fromhex(hexm)
+print(plaintext)
+print(plaintext.decode(errors='replace'))
+
+Diffie-Hellman (compute shared secret)
+# dh_shared.py
+# Usage: python3 dh_shared.py <p_decimal> <g_decimal> <a_decimal> <B_decimal>
+import sys
+p = int(sys.argv[1],10)
+g = int(sys.argv[2],10)
+a = int(sys.argv[3],10)   # your private exponent
+B = int(sys.argv[4],10)   # peer public value
+s = pow(B, a, p)
+print("shared_secret (decimal):", s)
+print("shared_secret (hex):", hex(s))
+
+SHA-256 prefix search (small brute-force example)
+# prefix_search.py — very small example; single-core
+import hashlib, itertools, sys
+
+prefix = bytes.fromhex(sys.argv[1])  # e.g. '00ff' -> b'\x00\xff'
+data = sys.argv[2].encode()          # base message
+for nonce in range(0, 2**24):        # adjust range for difficulty
+    candidate = data + nonce.to_bytes(4, 'big')
+    h = hashlib.sha256(candidate).digest()
+    if h.startswith(prefix):
+        print("nonce", nonce)
+        print("hash", h.hex())
+        break
+
+Helpful Python one-liners for quick byte ops
+# print hex of file
+python3 -c "import sys; print(open(sys.argv[1],'rb').read().hex())" file.bin
+
+# convert hex from stdin to ascii (if printable)
+echo "48656c6c6f" | python3 -c "import sys; print(bytes.fromhex(sys.stdin.read().strip()).decode(errors='replace'))"
